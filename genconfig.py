@@ -30,7 +30,7 @@ class config:
         self.conf_rname()
 
     def conf_rname(self):
-        self.realname = raw_input('Whats is your bots \'Real\' Name? (default: BugBot) ')
+        self.realname = raw_input('What\'s your bots \'Real\' Name? (default: BugBot) ')
         self.chkresponse(self.realname,'self.conf_rname()')
         if self.realname is '': self.realname = 'BugBot'
         self.conf_server()
