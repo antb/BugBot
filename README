@@ -1,0 +1,45 @@
+Run genconfig.py to set your configuration options.
+Run BugBot.py to load up your bot.
+
+
+Use genplugin.py to get a blank plugin file. I don't have command name
+conflict resolving yet, so try not to use a command already in use.
+
+self._parent.
+  term -> Prints to the console
+  -> term(LEVEL,'TEXT')
+    -> Use FUNC, SUB, DBG and ERROR for the LEVEL, 'TEXT' should be obvious.
+
+  send - Sends a message to IRC
+  -> send('TEXT',nick=False,channel=False)
+    -> 'TEXT' is what you want to send
+    -> nick will be prepended to TEXT if given. You can use True to provide the
+       callers nick
+    -> Channel will default to the current channel unless you specify otherwise
+
+  quote - Sends a raw irc command
+  -> quote('TEXT')
+    -> 'TEXT' is your command
+
+  notice - sends an irc notice
+  -> notice('TEXT','TARGET')
+    -> 'TEXT' is the notice content
+    -> 'TARGET' can be a person or a channel
+
+  getNick
+  getHost
+  getUser
+  getFullHost
+  getChannel
+  -> All return what you'd expect
+
+  getMessage
+  -> Returns everything after the command
+
+  getArg(argNum)
+  ->getArg(num)
+    -> num is any integer, it'll return the word at the position after the
+        message, starting at one
+
+        command arg1 arg2 arg3
+            0    1    2    3
