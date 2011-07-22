@@ -1,9 +1,25 @@
 Run genconfig.py to set your configuration options.
 Run BugBot.py to load up your bot.
 
+---
 
 Use genplugin.py to get a blank plugin file. I don't have command name
 conflict resolving yet, so try not to use a command already in use.
+
+The cmds class should contain all your commands as defines
+
+There is regular expression support for snarfing strings directly out of the
+chat, these are contained in the regexp class. The format of this is simple:
+
+    def commandName(self,match):
+        r'Regular Expression'
+        doStuff()
+
+match will contain the result from an re.group(0) function. Usually the matching
+string.
+
+The only infrastructure I provide for you to use is outlined below. You will
+need to import any modules for anything else you need.
 
 self._parent.
   term -> Prints to the console

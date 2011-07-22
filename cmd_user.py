@@ -109,3 +109,7 @@ class cmds:
         Returns the location of the current source for the bot"""
         self._parent.term(RCMD,'Source')
         self._parent.send(SOURCE,nick=True)
+
+class regexp:
+    def __init__(self,parent):
+        self._parent = parent

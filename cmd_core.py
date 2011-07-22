@@ -11,19 +11,19 @@ class cmds:
         """<module>
 
         Reloads a module."""
-        pass
+        pass # This command is coded into the main script.
 
     def modload(self):
         """<module>
 
         Loads a module. module name must take the form of cmd_<name>.py"""
-        pass
+        pass # This command is coded into the main script.
 
     def modunload(self):
         """<module>
 
         Unloads a module from the bot."""
-        pass
+        pass # This command is coded into the main script.
 
     def makeowner(self):
         if self._parent.getArg() in self._parent.config['owner'] and self._parent.config['isOwnerSet'] is 0:
@@ -42,3 +42,11 @@ class cmds:
                 self._parent.send('Owner registered as {0}'.format(ownermask))
             except Exception,e:
                 self._parent.term(ERROR,'config gen -> {0}'.format(e))
+
+class regexp:
+    def __init__(self,parent):
+        self._parent = parent
+
+    def greeter(self):
+        r"^(hello|hi|sup|hey|o?[bh]ai|wa+[sz]+(a+|u+)p?|Bye*|cya*|later[sz]?)[,. ]+(stewi?e?[griffin]?|bot|all|there)[.!]?"
+        self._parent.send('Hi, {0}'.format(self._parent.getNick()))

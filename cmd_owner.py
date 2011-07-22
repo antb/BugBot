@@ -141,3 +141,7 @@ class cmds:
                     self._parent.quote('PART {0} :Commanded by {1}'.format(each,self._parent.getNick()))
                     self._parent.config['channels'].pop(self._parent.config['channels'].index(each))
         self._parent.saveConfig()
+
+class regexp:
+    def __init__(self,parent):
+        self._parent = parent

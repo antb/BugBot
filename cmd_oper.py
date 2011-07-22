@@ -109,3 +109,6 @@ class cmds:
                 return '*!*@*'+user
         if d: return self._ip(user,d=False)
 
+class regexp:
+    def __init__(self,parent):
+        self._parent = parent

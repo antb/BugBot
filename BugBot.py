@@ -11,7 +11,7 @@
 ###  irc.globalgamers.net (AntB)     ###
 ###    #mafia #lounge                ###
 ########################################
-import sys,socket,os,random,time,json,datetime,threading
+import sys,socket,os,random,time,json,datetime,threading,re
 from globalInfo import *
 
 class bugbot(threading.Thread):
@@ -19,8 +19,12 @@ class bugbot(threading.Thread):
     random.seed()
 
     def __init__(self):
-        with open('CONFIG','r') as f:
-            self.config=json.load(f)
+        try:
+            with open('CONFIG','r') as f:
+                self.config=json.load(f)
+        except IOError:
+            self.term(ERROR,'CONFIG not found - Have you run genconfig.py?'
+
         self.term(INFO,'Initalising {0}...'.format(NAME))
 
         self.term(INFO,' {0} = Information*'.format('{: >4}'.format(INFO)))
@@ -33,7 +37,7 @@ class bugbot(threading.Thread):
             self.term(INFO,' {1}{0} = Debugging information{2}'.format('{: >4}'.format(DBG),COL['DBG'],COL['0']))
             self.term(INFO,' {1}{0} = Error* {2}'.format('{: >4}'.format(ERROR),COL['ERR'],COL['0']))
         else:
-            self.term(INFO,' {0} = Debugging information (You shouldn\'t see any of these)'.format('{: >4}'.format(DBG)))
+            self.term(INFO,' {0} = Debugging information'.format('{: >4}'.format(DBG)))
             self.term(INFO,' {0} = Critical Error *'.format('{: >4}'.format(ERROR)))
             
         self.term(INFO,' * Cannot be disabled')
@@ -64,20 +68,27 @@ class bugbot(threading.Thread):
         self.term(INFO,'- Loading command modules')
 
         self.cmds={'all':[]}
+        self.regexp={'all':[],'cmd':{},'reg':{}}
         #Dynamic Importing
         for each in os.listdir(os.getcwd()):
             if '.py' in each and 'cmd_' in each[0:4] and '.pyc' not in each:
                 each = each.split('.')[0]
                 try:
                     exec('self.m{0} = __import__(\'{0}\')'.format(each))
-                    exec('self.{0} = self.m{0}.cmds(self)'.format(each))
+
+                    exec('self.c{0} = self.m{0}.cmds(self)'.format(each))
+                    exec('self.r{0} = self.m{0}.regexp(self)'.format(each))
+
                     each = each.split('_')[1]
                     self.cmds[each]=[]
+                    self.regexp['cmd'][each]=[]
+                    self.regexp['reg'][each]=[]
                     self.term(INFO,'-- {0} Module imported sucessfully'.format(each.split('_')[0].capitalize()))
                 except Exception, e:
                     self.term(ERROR,'Importing {0}.py Failed. -> '.format(each,e))
 
         self.buildCommandList()
+        self.buildRegExps()
 
         self.term(INFO,' {0} initalised.'.format(NAME))
         self.connect()
@@ -95,11 +106,13 @@ class bugbot(threading.Thread):
             if lvl is RCMD:
                 message = self.getMessage()
                 if message is not None:
-                    text = "{0} command called with {1} by {2}".format(text,message,self.getFullHost())
+                    text = '{0} command called with {1} by {2}'.format(text,message,self.getFullHost())
                 else:
-                    text = "{0} command called by {1}".format(text,self.getFullHost())
+                    text = '{0} command called by {1}'.format(text,self.getFullHost())
+            elif lvl is RX:
+                text = 'Regexp match for {0} {1} triggered by {2}'.format(text[0],text[1],self.getFullHost())
             elif lvl is INFO and TTY:
-                    text = '{1}{0}{2}'.format(text,COL['INF'],COL['0'])
+                text = '{1}{0}{2}'.format(text,COL['INF'],COL['0'])
             elif lvl is ERROR:
                 if TTY:
                     text = '{1} ERROR: {0} {2}'.format(text,COL['ERR'],COL['0'])
@@ -201,16 +214,30 @@ class bugbot(threading.Thread):
     def buildCommandList(self):
         for cat in self.cmds:
             if 'all' in cat: continue
-            for cmd in dir(eval('self.cmd_'+cat)):
+            for cmd in dir(eval('self.ccmd_'+cat)):
                 if '_' not in cmd[0]:
                     self.cmds[cat]+=[cmd.lower()]
                     self.cmds['all']+=[cmd.lower()]
         self.term(INFO,'- Commands Registered')
         for each in self.cmds:
             self.cmds[each].sort()
-            if each is 'all':
-                continue
-            self.term(INFO,'- {0}-> {1}'.format('{0: <6}'.format(each.upper()),str(self.cmds[each])))
+            if each is 'all': continue
+            self.term(INFO,'-- {0}-> {1}'.format('{0: <6}'.format(each.upper()),str(self.cmds[each])))
+
+    def buildRegExps(self):
+        for cat in self.regexp['cmd']:
+            if 'all' in cat: continue
+            for rx in dir(eval('self.rcmd_'+cat)):
+                try:
+                    if '_' not in rx[0]:
+                        self.regexp['cmd'][cat]+=[rx]
+                        self.regexp['reg'][cat]+=[re.compile(eval('self.rcmd_{0}.{1}.__doc__'.format(cat,rx)))]
+                except:
+                    pass
+        self.term(INFO,'- Regular Expressions Registered')
+        for each in self.regexp['cmd']:
+            if each is 'all': continue
+            self.term(INFO,'-- {0}-> {1}'.format('{0: <6}'.format(each.upper()),str(self.regexp['cmd'][each])))
 
     def checkOwner(self):
         usermask = self.getFullHost()
@@ -325,6 +352,17 @@ class bugbot(threading.Thread):
                 except:
                     pass
 
+                for cat in self.regexp['cmd']:
+                    for cmd in self.regexp['cmd'][cat]:
+                        rx = re.compile(eval('self.rcmd_{0}.{1}.__doc__'.format(cat,cmd)))
+                        try:
+                            match = rx.search(self.buffer['line'].split(':',2)[2])
+                        except:
+                            match = None
+                        if match is not None:
+                            self.term(RX,(cat,cmd))
+                            exec('self.rcmd_{0}.{1}({2})'.format(cat,cmd,match))
+
                 for pref in self.config['prefix']:
                     try:
                         if pref in self.buffer['line'].split(':',2)[2][0]:
@@ -335,14 +373,15 @@ class bugbot(threading.Thread):
                                         module = self.getArg().lower()
                                         if module in self.cmds:
                                             exec('reload(self.mcmd_'+module+')')
-                                            exec('self.{0} = self.mcmd_{0}.cmds(self)'.format(module))
+                                            exec('self.c{0} = self.mcmd_{0}.cmds(self)'.format(module))
                                             self.term(INFO,'Module reloaded.')
                                             self.send('{0} has been reloaded. Use list {1} to see commands.'.format(module.capitalize(),module))
                                             for each in self.cmds:
                                                 self.cmds[each]=[]
                                             self.buildCommandList()
+                                            self.buildRegExps()
                                     except Exception, e:
-                                        print 'Unable to reload module -> {0}'.format(e)
+                                        self.term(ERROR,'Unable to reload module -> {0}'.format(e))
                                     continue
 
                             elif 'modload' in command and self.checkOwner():
@@ -354,10 +393,10 @@ class bugbot(threading.Thread):
                                 elif 'cmd_{0}.py'.format(module) in os.listdir(os.getcwd()):
                                     try:
                                         exec('self.mcmd_{0} = __import__(\'cmd_{0}\')'.format(module))
-                                        exec('self.cmd_{0} = self.mcmd_{0}.cmds(self)'.format(module))
+                                        exec('self.ccmd_{0} = self.mcmd_{0}.cmds(self)'.format(module))
                                         self.cmds[module]=[]
                                         self.term(INFO,'{0} module imported sucessfully'.format(module))
-                                        self.send('{0} module has been sucessfully loaded.',nick=True)
+                                        self.send('{0} module has been sucessfully loaded.'.format(module),nick=True)
                                     except Exception, e:
                                         self.term(ERROR,'Importing cmd_{0}.py Failed. -> '.format(module,e))
 
@@ -366,15 +405,18 @@ class bugbot(threading.Thread):
                                             self.cmds[each]=[]
                                         self.cmds[module]=[]
                                         self.buildCommandList()
+                                        self.buildRegExps()
                                     except Exception, e:
                                         self.term(ERROR,'Unable to rebuild command list.')
                                     continue
+                                else:
+                                    self.send('cmd_{0}.py not found in {1}'.format(module,os.getcwd())
 
                             elif 'modunload' in command and self.checkOwner():
                                 module = self.getArg().lower()
                                 try:
                                     exec('del self.mcmd_{0}'.format(module))
-                                    exec('del self.cmd_{0}'.format(module))
+                                    exec('del self.ccmd_{0}'.format(module))
                                     exec('del self.cmds[\'{0}\']'.format(module))
                                     self.send('{0} module removed'.format(module))
                                     self.term(INFO,'{0} module removed'.format(module))
@@ -398,13 +440,13 @@ class bugbot(threading.Thread):
                                             break
                                         else:
                                             self.term(DBG,'Executing command')
-                                            try: exec('self.cmd_{0}.{1}()'.format(each,command))
-                                            except Exception, e: self.term(ERROR,'Command failed to execute  -->  self.cmd_{0}.{1}()'.format(each,command,e))
+                                            try: exec('self.ccmd_{0}.{1}()'.format(each,command))
+                                            except Exception, e: self.term(ERROR,'Command failed to execute  -->  self.ccmd_{0}.{1}()'.format(each,command,e))
                                             break
                                     else:
                                         self.term(DBG,'Executing command')
-                                        try: exec('self.cmd_{0}.{1}()'.format(each,command))
-                                        except Exception,e: self.term(ERROR,'Command failed to execute  -->  self.cmd_{0}.{1}()  -->  {2}'.format(each,command,e))
+                                        try: exec('self.ccmd_{0}.{1}()'.format(each,command))
+                                        except Exception,e: self.term(ERROR,'Command failed to execute  -->  self.ccmd_{0}.{1}()  -->  {2}'.format(each,command,e))
                                         break
                     except: pass
 
