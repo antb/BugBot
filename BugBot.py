@@ -11,7 +11,7 @@
 ###  irc.globalgamers.net (AntB)     ###
 ###    #mafia #lounge                ###
 ########################################
-import sys,socket,os,random,time,json,datetime,threading,re
+import sys,socket,os,random,time,json,datetime,threading,re,inspect
 from globalInfo import *
 
 class bugbot(threading.Thread):
@@ -23,7 +23,7 @@ class bugbot(threading.Thread):
             with open('CONFIG','r') as f:
                 self.config=json.load(f)
         except IOError:
-            self.term(ERROR,'CONFIG not found - Have you run genconfig.py?'
+            self.term(ERROR,'CONFIG not found - Have you run genconfig.py?')
 
         self.term(INFO,'Initalising {0}...'.format(NAME))
 
@@ -49,21 +49,11 @@ class bugbot(threading.Thread):
         except: self.userMasks={}
 
         self.term(INFO,'- Setting Variables')
-        self.game={
-            'name':     'Current game setup name.',
-            'core':     'Current games core information..',
-            'players':  'Contains a lower case list of players in the game.',
-            'alive':    'Cross ref with players. Alive players are 1, dead are 0.',
-            'role':     'Cross ref with players. Roles are stored here.',
-            'votes':    'A nasty map contain who is voting for who.'
-        }
         self.botIsAlive = True
         self.pingChannel=''
         self.buffer={'in':'','out':'','line':''}
-        self.misc={'bottle':(random.random()*50)+1,'timebomb':{'wire':'','sender':''}}
-        self.currentGame={'type':'','phase':0,'players':{'nick':'','role':'','alignment':''},'alive':[],'day':0}
+        self.misc={'bottle':(random.random()*50)+1}
         self.s = None
-        self.nicksInChannel={}
 
         self.term(INFO,'- Loading command modules')
 
@@ -74,8 +64,15 @@ class bugbot(threading.Thread):
             if '.py' in each and 'cmd_' in each[0:4] and '.pyc' not in each:
                 each = each.split('.')[0]
                 try:
-                    exec('self.m{0} = __import__(\'{0}\')'.format(each))
+                    try:self.__setattr__('m{0}'.format(each),__import__(each))
+                    except Exception, e: self,term(ERROR,'unable to import - {0}'.format(e))
 
+  #                  try: self.__setattr__('c{0}'.format(each),self.__getattribute__'m{0}.cmds'.format(each))
+   #                 except Exception, e: self.term(ERROR,'unable to get cmds {0}'.format(e))
+    #                try: self.__setattr__('r{0}'.format(each),self.__getattribute__('m{0}.regexp'.format(each)))
+     #               except Exception, e: self.term(ERROR,'unable to get regexps {0}'.format(e))
+
+#                    exec('self.m{0} = __import__(\'{0}\')'.format(each))
                     exec('self.c{0} = self.m{0}.cmds(self)'.format(each))
                     exec('self.r{0} = self.m{0}.regexp(self)'.format(each))
 
@@ -135,7 +132,7 @@ class bugbot(threading.Thread):
     def quote(self,text):
         text = str(text)
         self.term(RSEND,'IRC.QUOTE-> {0}'.format(text))
-        text = text.replace('\\x02','\x02').replace('\\x03','\x03').replace('\\x0f','\x0F').replace('\\x0F','\x0F')
+        text = text.replace('\\x01','\x01').replace('\\x02','\x02').replace('\\x03','\x03').replace('\\x0f','\x0F').replace('\\x0F','\x0F')
         self.s.send('{0}\r\n'.format(text))
 
     def send(self, text, nick=False, channel=False):
@@ -204,7 +201,7 @@ class bugbot(threading.Thread):
         self.term(SUB,'Saving configuration')
         try:
             with open('CONFIG','w') as f:
-                json.dump(self.config,f)
+                f.write(json.dumps(self.config,indent=4))
         except:
             self.term(ERROR,'Unable to save config file.')
 
@@ -229,7 +226,9 @@ class bugbot(threading.Thread):
             if 'all' in cat: continue
             for rx in dir(eval('self.rcmd_'+cat)):
                 try:
-                    if '_' not in rx[0]:
+                    if '_' not in rx[0]:# and inspect.isfunction(eval('self.rcmd_{0}.{1}'.format(cat,rx))):
+                        eval('print inspect.isfunction(self.rcmd_{0}.{1})'.format(cat,rx))
+                        print inspect.isfunction(self.rcmd_cat.rx)
                         self.regexp['cmd'][cat]+=[rx]
                         self.regexp['reg'][cat]+=[re.compile(eval('self.rcmd_{0}.{1}.__doc__'.format(cat,rx)))]
                 except:
@@ -298,11 +297,6 @@ class bugbot(threading.Thread):
             self.buffer['out']=self.buffer['in'].split("\r\n")
             self.buffer['in']=self.buffer['out'].pop()
             for self.buffer['line'] in self.buffer['out']:
-                if 'Checking Ident' in self.buffer['line']:
-                    self.quote('NICK {0}'.format(self.config['nick'][0]))
-                    self.currentNick = self.config['nick'][0]
-                    self.quote('USER {0} {1} bla :{2}'.format(self.config['ident'], self.config['host'], self.config['realName']))
-                    self.nsid()
                 try:
                     irccode = int(self.buffer['line'].split()[1])
 
@@ -311,16 +305,24 @@ class bugbot(threading.Thread):
                     elif irccode == 433:
                         self.quote('NICK {0}'.format(self.config['nick'][1]))
                         self.currentNick = self.config['nick'][1]
+                    elif irccode == 266:
+                        for channel in self.config['channels']:
+                            self.quote('JOIN {0}'.format(channel))
+                        connected = True
+
                     if irccode != 372:
                         self.term(RRECV,self.buffer['line'])
                 except:
                     self.term(RRECV,self.buffer['line'])
-                    try:
-                        if ':{0} MODE {0} :+i'.format(self.currentNick) in self.buffer['line']:
-                            for channel in self.config['channels']:
-                                self.quote('JOIN {0}'.format(channel))
-                            connected = True
-                    except: pass
+
+                    if 'PING' in self.buffer['line'] and '\x01' not in self.buffer['line']:
+                        self.quote('PONG {0}'.format(self.buffer['line'].split(' ')[1]))
+
+                    if 'looking up your hostname' in self.buffer['line'].lower():
+                        self.quote('NICK {0}'.format(self.config['nick'][0]))
+                        self.currentNick = self.config['nick'][0]
+                        self.quote('USER {0} {1} bla :{2}'.format(self.config['ident'], self.config['host'], self.config['realName']))
+                        self.nsid()
         self.mainLoop()
 
     def mainLoop(self):
@@ -335,9 +337,12 @@ class bugbot(threading.Thread):
                 elif '\x01' in self.buffer['line'] and 'PRIVMSG' in self.buffer['line']:
                     self.doCTCP()
                 elif ':\x01PING' in self.buffer['line'] and 'NOTICE' in self.buffer['line']:
-                    pingReply=float(self.buffer['line'].split()[4][:-1])
-                    roundTime = time.time()-pingReply
-                    self.quote('PRIVMSG {0} :{1} has a ping response of {2} seconds.'.format(self.pingChannel,self.getNick(),str(round(roundTime,2))[:4]))
+                    try:
+                        pingReply=float(self.buffer['line'].split()[4][:-1])
+                        roundTime = time.time()-pingReply
+                        self.quote('PRIVMSG {0} :{1} has a ping response of {2} seconds.'.format(self.pingChannel,self.getNick(),str(round(roundTime,2))[:4]))
+                    except:
+                        self.quote('PRIVMSG {0) :{1} has an invalid response.'.format(self.pingChannel,self.getNick()))
 
                 if 'KICK' in self.buffer['line'] and self.currentNick in self.buffer['line'].split()[3]:
                     time.sleep(1)
@@ -348,12 +353,13 @@ class bugbot(threading.Thread):
                     if self.buffer['line'][1:].split('!')[0] not in self.userMasks or self.buffer['line'].split()[0].split('@')[1] not in self.userMasks[self.buffer['line'][1:].split('!')[0]]:
                         self.userMasks[self.buffer['line'][1:].split('!')[0]] = self.buffer['line'].split()[0].split('@')[1]
                         with open('USERS','w') as f:
-                            json.dump(self.userMasks,f)
+                            f.write(json.dumps(self.userMasks,indent=4))
                 except:
                     pass
 
                 for cat in self.regexp['cmd']:
                     for cmd in self.regexp['cmd'][cat]:
+                        if x is None: continue
                         rx = re.compile(eval('self.rcmd_{0}.{1}.__doc__'.format(cat,cmd)))
                         try:
                             match = rx.search(self.buffer['line'].split(':',2)[2])
@@ -361,7 +367,8 @@ class bugbot(threading.Thread):
                             match = None
                         if match is not None:
                             self.term(RX,(cat,cmd))
-                            exec('self.rcmd_{0}.{1}({2})'.format(cat,cmd,match))
+                            exec('self.rcmd_{0}.{1}(\'{2}\')'.format(cat,cmd,match.group(0)))
+                            
 
                 for pref in self.config['prefix']:
                     try:
@@ -374,10 +381,15 @@ class bugbot(threading.Thread):
                                         if module in self.cmds:
                                             exec('reload(self.mcmd_'+module+')')
                                             exec('self.c{0} = self.mcmd_{0}.cmds(self)'.format(module))
+                                            exec('self.r{0} = self.mcmd_{0}.regexp(self)'.format(module))
                                             self.term(INFO,'Module reloaded.')
                                             self.send('{0} has been reloaded. Use list {1} to see commands.'.format(module.capitalize(),module))
                                             for each in self.cmds:
                                                 self.cmds[each]=[]
+                                            for each in self.regexp['reg']:
+                                                self.regexp['reg'][each]=[]
+                                                self.regexp['cmd'][each]=[]
+
                                             self.buildCommandList()
                                             self.buildRegExps()
                                     except Exception, e:
@@ -394,6 +406,7 @@ class bugbot(threading.Thread):
                                     try:
                                         exec('self.mcmd_{0} = __import__(\'cmd_{0}\')'.format(module))
                                         exec('self.ccmd_{0} = self.mcmd_{0}.cmds(self)'.format(module))
+                                        exec('self.rcmd_{0} = self.mcmd_{0}.regexp(self)'.format(module))
                                         self.cmds[module]=[]
                                         self.term(INFO,'{0} module imported sucessfully'.format(module))
                                         self.send('{0} module has been sucessfully loaded.'.format(module),nick=True)
@@ -410,21 +423,24 @@ class bugbot(threading.Thread):
                                         self.term(ERROR,'Unable to rebuild command list.')
                                     continue
                                 else:
-                                    self.send('cmd_{0}.py not found in {1}'.format(module,os.getcwd())
+                                    self.send('cmd_{0}.py not found in {1}'.format(module,os.getcwd()))
 
                             elif 'modunload' in command and self.checkOwner():
                                 module = self.getArg().lower()
                                 try:
                                     exec('del self.mcmd_{0}'.format(module))
                                     exec('del self.ccmd_{0}'.format(module))
+                                    exec('del self.rcmd_{0}'.format(module))
                                     exec('del self.cmds[\'{0}\']'.format(module))
+                                    exec('del self.regexp[\'cmd\'][{0}]'.format(module))
+                                    exec('del self.regexp[\'reg\'][{0}]'.format(module))
                                     self.send('{0} module removed'.format(module))
                                     self.term(INFO,'{0} module removed'.format(module))
                                     for each in self.cmds:
                                         self.cmds[each]=[]
                                     self.buildCommandList()
                                 except Exception, e:
-                                    self.term(ERROR,'Removing {0} module has failed.')
+                                    self.term(ERROR,'Removing {0} module has failed.'.format(module))
 
                             for each in self.cmds:
                                 each = each.lower()
@@ -453,3 +469,4 @@ class bugbot(threading.Thread):
 
 if __name__ == "__main__":
     bugbot().start()
+        
