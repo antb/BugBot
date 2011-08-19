@@ -62,11 +62,13 @@ class cmds:
                 output='once or twice. As {0} put the bottle down it exploded all over him/her.'.format(self._parent.getNick())
             else:
                 output='picked up the bottle, which was enough to make it explode violently in their hand.'
-            self._parent.send('\x02{0}\x02 shook the bottle {0}'.format(self._parent.getNick(),output))
+            self._parent.send('\x02{0}\x02 shook the bottle {1}'.format(self._parent.getNick(),output))
             time.sleep(1)
-            self._parent.quote('KICK {0} {1} :Fizzy explosion (x.x)'.format(self._parent.getChannel(),self._parent.getNick()))
+            if not self._parent.game.inprogress:
+                self._parent.quote('KICK {0} {1} :Fizzy explosion (x.x)'.format(self._parent.getChannel(),self._parent.getNick()))
+                self._parent.quote('INVITE {0} :{1}'.format(self._parent.getNick(),self._parent.getChannel()))
             self._parent.misc['bottle'] = (random.random()*50)
-            self._parent.quote('INVITE {0} :{1}'.format(self._parent.getNick(),self._parent.getChannel()))
+
 
     def help(self):
         """[command]

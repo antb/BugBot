@@ -47,6 +47,7 @@ class regexp:
     def __init__(self,parent):
         self._parent = parent
 
-    def greeter(self):
+    def greeter(self,match):
         r"^(hello|hi|sup|hey|o?[bh]ai|wa+[sz]+(a+|u+)p?|Bye*|cya*|later[sz]?)[,. ]+(stewi?e?[griffin]?|bot|all|there)[.!]?"
+        print match
         self._parent.send('Hi, {0}'.format(self._parent.getNick()))

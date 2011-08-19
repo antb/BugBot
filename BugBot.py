@@ -55,6 +55,8 @@ class bugbot(threading.Thread):
         self.misc={'bottle':(random.random()*50)+1}
         self.s = None
 
+        self.game={} #needed
+
         self.term(INFO,'- Loading command modules')
 
         self.cmds={'all':[]}
@@ -120,6 +122,7 @@ class bugbot(threading.Thread):
 
             if lvl is DBG and TTY:
                 text='{1}{0}{2}'.format(text,COL['DBG'],COL['0'])
+
 
             if TTY:
                 print '{3}{0}|{1}| {4}{2}'.format(time.strftime("%d%m%y %H:%M:%S ", time.gmtime()),'{: ^5}'.format(lvl),text.replace('\x02','').replace('\x03',''),COL['REC'],COL['0'])
@@ -226,9 +229,7 @@ class bugbot(threading.Thread):
             if 'all' in cat: continue
             for rx in dir(eval('self.rcmd_'+cat)):
                 try:
-                    if '_' not in rx[0]:# and inspect.isfunction(eval('self.rcmd_{0}.{1}'.format(cat,rx))):
-                        eval('print inspect.isfunction(self.rcmd_{0}.{1})'.format(cat,rx))
-                        print inspect.isfunction(self.rcmd_cat.rx)
+                    if '_' not in rx[0]:
                         self.regexp['cmd'][cat]+=[rx]
                         self.regexp['reg'][cat]+=[re.compile(eval('self.rcmd_{0}.{1}.__doc__'.format(cat,rx)))]
                 except:
@@ -305,7 +306,7 @@ class bugbot(threading.Thread):
                     elif irccode == 433:
                         self.quote('NICK {0}'.format(self.config['nick'][1]))
                         self.currentNick = self.config['nick'][1]
-                    elif irccode == 266:
+                    elif irccode == 376:
                         for channel in self.config['channels']:
                             self.quote('JOIN {0}'.format(channel))
                         connected = True
@@ -359,7 +360,7 @@ class bugbot(threading.Thread):
 
                 for cat in self.regexp['cmd']:
                     for cmd in self.regexp['cmd'][cat]:
-                        if x is None: continue
+                        #if x is None: continue
                         rx = re.compile(eval('self.rcmd_{0}.{1}.__doc__'.format(cat,cmd)))
                         try:
                             match = rx.search(self.buffer['line'].split(':',2)[2])
@@ -451,6 +452,7 @@ class bugbot(threading.Thread):
                                     self.term(RCMD,command)
                                     if each is 'owner':
                                         self.term(DBG,'Command is in owner group')
+                                        print self.checkOwner()
                                         if self.checkOwner() is False:
                                             self.send('You don\'t have the permission required to do that.')
                                             break

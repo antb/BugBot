@@ -1,3 +1,10 @@
+This bot is originally created to run Mafia games on freenode. I seperated each
+section into modules because some other people wanted a lightweight bot they
+could do whatever they wanted to do with. I've spent more time on the framework
+building it up for these people instead of the mafia part of the bot itself.
+
+---
+
 Run genconfig.py to set your configuration options.
 Run BugBot.py to load up your bot.
 

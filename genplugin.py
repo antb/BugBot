@@ -14,7 +14,7 @@ class genPlugin:
 
         try:
             with open('cmd_{0}.py'.format(filename),'w') as f:
-                f.write('from globalInfo import *\n\nclass cmds:\n    """{0}"""\n    def __init__(self,parent):\n       self._parent = parent\n\nclass regexp:def __init__(self,parent):\n      self._parent = parent'.format(desc))
+                f.write('from globalInfo import *\n\nclass cmds:\n    """{0}"""\n    def __init__(self,parent):\n        self._parent = parent\n\nclass regexp:\n    def __init__(self,parent):\n        self._parent = parent'.format(desc))
         except:
             print "It failed."
             exit()

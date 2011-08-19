@@ -2,7 +2,7 @@
 import sys
 
 TTY     = False
-if 'linux' in sys.platform: TTY = True
+if 'linux' in sys.platform or 'BSD' in sys.platform: TTY = True
 
 NAME    = 'BugBot'
 VERSION = 'ALPHA - Python {0}.{1}.{2}'.format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
